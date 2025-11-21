@@ -4,6 +4,9 @@ import (
 	"context"
 	"log/slog"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/fr0stylo/line/gen/envelope"
 	"github.com/fr0stylo/line/store"
 )
 
@@ -27,7 +30,20 @@ func (l *Line) Close() error {
 
 // Push enqueues a new message into the durable store.
 func (l *Line) Push(blob []byte) error {
-	if _, err := l.fs.Write(blob); err != nil {
+	payload := envelope.Envelope{
+		Id:         "",
+		Timestamp:  0,
+		Baggage:    nil,
+		Attributes: nil,
+		Payload:    blob,
+	}
+
+	buf, err := proto.Marshal(&payload)
+	if err != nil {
+		return err
+	}
+
+	if _, err := l.fs.Write(buf); err != nil {
 		return err
 	}
 
@@ -36,7 +52,17 @@ func (l *Line) Push(blob []byte) error {
 
 // Pop blocks until the next message is available and returns it.
 func (l *Line) Pop() ([]byte, error) {
-	return l.fs.Read()
+	buf, err := l.fs.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	var payload envelope.Envelope
+	if err := proto.Unmarshal(buf, &payload); err != nil {
+		return nil, err
+	}
+
+	return payload.GetPayload(), nil
 }
 
 // Stream continuously emits messages until the context is cancelled or the
@@ -54,7 +80,7 @@ func (l *Line) Stream(ctx context.Context) <-chan []byte {
 
 			}
 
-			blob, err := l.fs.Read()
+			blob, err := l.Pop()
 			if err != nil {
 				slog.Error("Failed to read message", "error", err)
 				continue

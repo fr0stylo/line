@@ -1,0 +1,13 @@
+version: v2
+
+modules:
+  - name: buf.build/fr0stylo/line
+    path: proto
+
+lint:
+  use:
+    - DEFAULT
+
+breaking:
+  use:
+    - FILE
