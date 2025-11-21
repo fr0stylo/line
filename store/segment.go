@@ -89,7 +89,7 @@ func (s *SegmentStore) nextReadableSegment() error {
 	s.readSegment++
 	s.readOffset = 0
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/%08d.log", s.dir, s.writeSegment), os.O_RDONLY, 0o644)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%08d.log", s.dir, s.readSegment), os.O_RDONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -179,6 +179,10 @@ func (s *SegmentStore) Close() error {
 // NewSegmentStore constructs a segment-backed store rooted at dir with the
 // provided segment size.
 func NewSegmentStore(dir string, segmentSize uint64) (*SegmentStore, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+
 	mux := &sync.Mutex{}
 	cond := sync.NewCond(mux)
 
