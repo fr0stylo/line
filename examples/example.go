@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"line"
-	"line/store"
+	"github.com/fr0stylo/line"
+	"github.com/fr0stylo/line/store"
 )
 
 func main() {

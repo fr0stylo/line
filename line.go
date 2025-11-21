@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"line/store"
+	"github.com/fr0stylo/line/store"
 )
 
 type Queue interface {

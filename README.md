@@ -93,6 +93,33 @@ Run `make fmt vet lint test build` before pushing to ensure formatting, vetting,
 - Use `go test ./... -cover` to confirm meaningful coverage of push/pop paths, error handling, and segment rollover.
 - `golangci-lint` is the canonical static-analysis entry point; configure it via `GOLANGCI_LINT` env var if installed in a custom path.
 
+## Performance Testing
+- Run the push/pop throughput benchmark via `go test -bench=LinePushPopThroughput -run '^$' -benchmem -benchtime=5s .`.
+- Each sub-benchmark exercises a payload size (`128B`, `512B`, `2KiB`, `8KiB`) across batch factors (`batch1`, `batch8`, `batch64`), so you get a grid of `msgs/s` metrics that reflect both message size and per-iteration depth.
+- Narrow to a specific scenario with `go test -bench='LinePushPopThroughput/2048B_batch64' -run '^$' -benchmem -benchtime=10s .`.
+- Benchmark data are written to a temporary directory, so every invocation is isolated and leaves no artifacts under `./dir`. Adjust `-benchtime` for longer sampling windows and inspect `-benchmem` output to compare allocation pressure across runs. Throughput is I/O bound, so SSDs vs HDDs (or tmpfs) can materially change results.
+
+Sample output from an AMD Ryzen 7 5700U laptop (ext4 NVMe SSD, `-benchtime=5s`):
+
+```
+goos: linux
+goarch: amd64
+pkg: github.com/fr0stylo/line
+cpu: AMD Ryzen 7 5700U with Radeon Graphics
+BenchmarkLinePushPopThroughput/128B_batch1-16         	   43040	    138122 ns/op	   0.93 MB/s	      7240 msgs/s	    3464 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch8-16         	    5006	   1098689 ns/op	   0.93 MB/s	      7281 msgs/s	   27714 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch64-16        	     668	   8883796 ns/op	   0.92 MB/s	      7204 msgs/s	  229131 B/op	    3394 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch1-16         	   41470	    139358 ns/op	   3.67 MB/s	      7176 msgs/s	    3849 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch8-16         	    5143	   1158070 ns/op	   3.54 MB/s	      6908 msgs/s	   30796 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch64-16        	     589	  10951088 ns/op	   2.99 MB/s	      5844 msgs/s	  253762 B/op	    3394 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch1-16        	   42495	    148920 ns/op	  13.75 MB/s	      6715 msgs/s	    5504 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch8-16        	    4538	   1398247 ns/op	  11.72 MB/s	      5721 msgs/s	   44034 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch64-16       	     650	   9126376 ns/op	  14.36 MB/s	      7013 msgs/s	  352879 B/op	    3394 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch1-16        	   38162	    153873 ns/op	  53.24 MB/s	      6499 msgs/s	   11661 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch8-16        	    4818	   1219965 ns/op	  53.72 MB/s	      6558 msgs/s	   93284 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch64-16       	     604	   9740597 ns/op	  53.83 MB/s	      6570 msgs/s	  746866 B/op	    3397 allocs/op
+```
+
 ## Persistence & Configuration
 - File store (`store.NewFile`) writes to a single append-only log; ideal for small deployments.
 - Segment store (`store.NewSegmentStore(dir, segmentSize)`) caps each log file at `segmentSize` bytes and rolls forward, deleting old segments after successful reads.
