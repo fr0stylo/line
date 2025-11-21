@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,15 +17,18 @@ type SegmentStore struct {
 	writeSegment uint64
 	readSegment  uint64
 
-	readOffset  uint64
-	writeOffset uint64
+	readOffset     uint64
+	writeOffset    uint64
+	volatileOffset uint64
 
 	segmentSize uint64
 
 	mux  *sync.Mutex
 	cond *sync.Cond
 
-	w *os.File
+	w  *os.File
+	wb *bufio.Writer
+
 	r *os.File
 }
 
@@ -65,6 +69,7 @@ func (s *SegmentStore) nextWritableSegment() error {
 	}
 
 	s.w = f
+	s.wb = bufio.NewWriter(f)
 
 	return nil
 }
@@ -101,7 +106,7 @@ func (s *SegmentStore) Write(p []byte) (n int, err error) {
 		}
 	}
 
-	n, err = write(s.w, p)
+	n, err = write(s.wb, p)
 	if err != nil {
 		return 0, err
 	}
@@ -109,6 +114,10 @@ func (s *SegmentStore) Write(p []byte) (n int, err error) {
 	s.writeOffset += uint64(n)
 	if err := storeMetadata(s.metadataPath, s); err != nil {
 		return n, err
+	}
+
+	if err := s.wb.Flush(); err != nil {
+		return 0, err
 	}
 
 	s.cond.Signal()
@@ -193,6 +202,7 @@ func NewSegmentStore(dir string, segmentSize uint64) (*SegmentStore, error) {
 	}
 
 	s.w = f
+	s.wb = bufio.NewWriter(f)
 
 	r, err := os.OpenFile(fmt.Sprintf("%s/%08d.log", dir, s.readSegment), os.O_RDONLY, 0o644)
 	if err != nil {

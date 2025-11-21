@@ -63,7 +63,7 @@ func (f *FileStore) readSingle() ([]byte, error) {
 		return nil, err
 	}
 
-	f.readOffset += offsetSize + uint64(n)
+	f.readOffset += uint64(n)
 
 	if err = storeMetadata(f.metadataPath, f); err != nil {
 		return nil, err

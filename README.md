@@ -99,25 +99,25 @@ Run `make fmt vet lint test build` before pushing to ensure formatting, vetting,
 - Narrow to a specific scenario with `go test -bench='LinePushPopThroughput/2048B_batch64' -run '^$' -benchmem -benchtime=10s .`.
 - Benchmark data are written to a temporary directory, so every invocation is isolated and leaves no artifacts under `./dir`. Adjust `-benchtime` for longer sampling windows and inspect `-benchmem` output to compare allocation pressure across runs. Throughput is I/O bound, so SSDs vs HDDs (or tmpfs) can materially change results.
 
-Sample output from an AMD Ryzen 7 5700U laptop (ext4 NVMe SSD, `-benchtime=5s`):
+Sample output from an AMD Ryzen 7 5700U laptop (ext4 NVMe SSD, `-benchtime=5s`, buffered writes enabled):
 
 ```
 goos: linux
 goarch: amd64
 pkg: github.com/fr0stylo/line
 cpu: AMD Ryzen 7 5700U with Radeon Graphics
-BenchmarkLinePushPopThroughput/128B_batch1-16         	   43040	    138122 ns/op	   0.93 MB/s	      7240 msgs/s	    3464 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/128B_batch8-16         	    5006	   1098689 ns/op	   0.93 MB/s	      7281 msgs/s	   27714 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/128B_batch64-16        	     668	   8883796 ns/op	   0.92 MB/s	      7204 msgs/s	  229131 B/op	    3394 allocs/op
-BenchmarkLinePushPopThroughput/512B_batch1-16         	   41470	    139358 ns/op	   3.67 MB/s	      7176 msgs/s	    3849 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/512B_batch8-16         	    5143	   1158070 ns/op	   3.54 MB/s	      6908 msgs/s	   30796 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/512B_batch64-16        	     589	  10951088 ns/op	   2.99 MB/s	      5844 msgs/s	  253762 B/op	    3394 allocs/op
-BenchmarkLinePushPopThroughput/2048B_batch1-16        	   42495	    148920 ns/op	  13.75 MB/s	      6715 msgs/s	    5504 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/2048B_batch8-16        	    4538	   1398247 ns/op	  11.72 MB/s	      5721 msgs/s	   44034 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/2048B_batch64-16       	     650	   9126376 ns/op	  14.36 MB/s	      7013 msgs/s	  352879 B/op	    3394 allocs/op
-BenchmarkLinePushPopThroughput/8192B_batch1-16        	   38162	    153873 ns/op	  53.24 MB/s	      6499 msgs/s	   11661 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/8192B_batch8-16        	    4818	   1219965 ns/op	  53.72 MB/s	      6558 msgs/s	   93284 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/8192B_batch64-16       	     604	   9740597 ns/op	  53.83 MB/s	      6570 msgs/s	  746866 B/op	    3397 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch1-16         	   45787	    134881 ns/op	   0.95 MB/s	      7414 msgs/s	    3334 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch8-16         	    5380	   1101614 ns/op	   0.93 MB/s	      7262 msgs/s	   26930 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch64-16        	     699	   8705236 ns/op	   0.94 MB/s	      7352 msgs/s	  229122 B/op	    3393 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch1-16         	   42748	    139368 ns/op	   3.67 MB/s	      7175 msgs/s	    3849 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch8-16         	    5384	   1089271 ns/op	   3.76 MB/s	      7344 msgs/s	   30797 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch64-16        	     692	   8891392 ns/op	   3.69 MB/s	      7198 msgs/s	  253780 B/op	    3394 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch1-16        	   42324	    140981 ns/op	  14.53 MB/s	      7093 msgs/s	    5505 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch8-16        	    4916	   1120916 ns/op	  14.62 MB/s	      7137 msgs/s	   44045 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch64-16       	     681	   8910302 ns/op	  14.71 MB/s	      7183 msgs/s	  352946 B/op	    3395 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch1-16        	   38728	    153491 ns/op	  53.37 MB/s	      6515 msgs/s	   11665 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch8-16        	    4762	   1220220 ns/op	  53.71 MB/s	      6556 msgs/s	   93317 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch64-16       	     621	   9654863 ns/op	  54.30 MB/s	      6629 msgs/s	  747170 B/op	    3398 allocs/op
 ```
 
 ## Persistence & Configuration
