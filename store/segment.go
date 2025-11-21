@@ -3,6 +3,7 @@ package store
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -147,6 +148,10 @@ func (s *SegmentStore) Read() (p []byte, err error) {
 	}
 
 	blob, n, err := read(s.r)
+	for errors.Is(err, ErrorCRCCheckMismatch) && err != nil {
+		blob, n, err = read(s.r)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,8 @@ package store
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
+	"hash/crc32"
 	"io"
 	"os"
 	"path"
@@ -29,11 +31,18 @@ func storeMetadata(filePath string, data any) error {
 	return nil
 }
 
+const crcSize = 4
+
+// Layout:
+//  [4 bytes] blob length
+//  [blob length bytes] blob
+//  [4 bytes] CRC
+
 func write(w io.Writer, p []byte) (n int, err error) {
 	size := len(p)
 
 	var buf [8]byte
-	binary.BigEndian.PutUint64(buf[:], uint64(size))
+	binary.BigEndian.PutUint64(buf[:], uint64(size+crcSize))
 
 	w1, err := w.Write(buf[:])
 	if err != nil {
@@ -41,9 +50,23 @@ func write(w io.Writer, p []byte) (n int, err error) {
 	}
 
 	w2, err := w.Write(p)
+	if err != nil {
+		return w1 + w2, err
+	}
 
-	return w1 + w2, err
+	var crc [4]byte
+	sum := crc32.Checksum(p, crc32.MakeTable(crc32.Castagnoli))
+	binary.BigEndian.PutUint32(crc[:], sum)
+
+	w3, err := w.Write(crc[:])
+	if err != nil {
+		return w1 + w2 + w3, err
+	}
+
+	return w1 + w2 + w3, err
 }
+
+var ErrorCRCCheckMismatch = errors.New("CRC check mismatch")
 
 func read(r io.Reader) (p []byte, n int, err error) {
 	var buf [8]byte
@@ -57,6 +80,13 @@ func read(r io.Reader) (p []byte, n int, err error) {
 	blobN, err := r.Read(blob)
 	if err != nil {
 		return nil, blobN + offsetN, err
+	}
+
+	crc := blob[len(blob)-4:]
+	blob = blob[:len(blob)-4]
+
+	if sum := crc32.Checksum(blob, crc32.MakeTable(crc32.Castagnoli)); sum != binary.BigEndian.Uint32(crc) {
+		return nil, blobN + offsetN, ErrorCRCCheckMismatch
 	}
 
 	return blob, blobN + offsetN, nil
