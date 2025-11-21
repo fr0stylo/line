@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// FileStore implements Store using a single append-only log file.
 type FileStore struct {
 	path         string
 	metadataPath string
@@ -22,6 +23,7 @@ type FileStore struct {
 	r *os.File
 }
 
+// MarshalJSON serializes read and write offsets to JSON metadata.
 func (f *FileStore) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"readOffset":  f.readOffset,
@@ -29,6 +31,7 @@ func (f *FileStore) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// UnmarshalJSON restores offsets from persisted metadata snapshots.
 func (f *FileStore) UnmarshalJSON(bytes []byte) error {
 	var data map[string]uint64
 	if err := json.Unmarshal(bytes, &data); err != nil {
@@ -39,6 +42,7 @@ func (f *FileStore) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
+// Write appends the length-prefixed payload and persists metadata.
 func (f *FileStore) Write(p []byte) (n int, err error) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
@@ -71,6 +75,7 @@ func (f *FileStore) readSingle() ([]byte, error) {
 	return blob, nil
 }
 
+// Read blocks until bytes are available and returns the oldest payload.
 func (f *FileStore) Read() (p []byte, err error) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
@@ -81,6 +86,7 @@ func (f *FileStore) Read() (p []byte, err error) {
 	return f.readSingle()
 }
 
+// Close flushes metadata and closes read/write file handles.
 func (f *FileStore) Close() error {
 	if err := storeMetadata(f.metadataPath, f); err != nil {
 		return err
@@ -91,6 +97,7 @@ func (f *FileStore) Close() error {
 	return f.w.Close()
 }
 
+// NewFile initializes a FileStore backed by filePath and metadata JSON.
 func NewFile(filePath string) (*FileStore, error) {
 	if err := os.MkdirAll(path.Dir(filePath), 0o755); err != nil {
 		return nil, err

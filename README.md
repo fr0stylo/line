@@ -20,6 +20,7 @@ Durable Go queue built on append-only stores. `line` provides a minimal push/pop
 - **Back-pressure aware streaming**: `Stream(ctx)` yields messages on a channel until cancelled.
 - **Concurrency safety**: Writers and readers share mutex/condition primitives for predictable blocking semantics.
 - **Example-driven**: `examples/example.go` simulates multiple producers and one streaming consumer.
+- **Name with a wink**: “Line” doubles as “queue” in several languages, so the project name is a tongue-in-cheek nod to its FIFO focus.
 
 ## Architecture
 The architecture revolves around three layers:

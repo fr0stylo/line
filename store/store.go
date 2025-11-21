@@ -7,6 +7,7 @@ import (
 
 const offsetSize uint64 = 8
 
+// Store defines the persistence contract queue implementations depend on.
 type Store interface {
 	io.Writer
 	io.Closer

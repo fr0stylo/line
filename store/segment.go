@@ -10,6 +10,7 @@ import (
 	"sync"
 )
 
+// SegmentStore implements Store by rolling fixed-size log segments on disk.
 type SegmentStore struct {
 	dir          string
 	metadataPath string
@@ -32,6 +33,7 @@ type SegmentStore struct {
 	r *os.File
 }
 
+// UnmarshalJSON restores metadata from the persisted JSON snapshot.
 func (s *SegmentStore) UnmarshalJSON(bytes []byte) error {
 	var data map[string]uint64
 	if err := json.Unmarshal(bytes, &data); err != nil {
@@ -46,6 +48,7 @@ func (s *SegmentStore) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
+// MarshalJSON encodes the offsets and current segment indexes.
 func (s *SegmentStore) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]uint64{
 		"readOffset":   s.readOffset,
@@ -96,6 +99,8 @@ func (s *SegmentStore) nextReadableSegment() error {
 	return nil
 }
 
+// Write appends the payload to the active segment, rolling files and storing
+// metadata when needed.
 func (s *SegmentStore) Write(p []byte) (n int, err error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -125,6 +130,8 @@ func (s *SegmentStore) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
+// Read blocks until data is available, advancing to the next segment and
+// pruning fully-read logs as needed.
 func (s *SegmentStore) Read() (p []byte, err error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -152,6 +159,7 @@ func (s *SegmentStore) Read() (p []byte, err error) {
 	return blob, nil
 }
 
+// Close persists metadata and closes open segment descriptors.
 func (s *SegmentStore) Close() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -168,6 +176,8 @@ func (s *SegmentStore) Close() error {
 	return s.w.Close()
 }
 
+// NewSegmentStore constructs a segment-backed store rooted at dir with the
+// provided segment size.
 func NewSegmentStore(dir string, segmentSize uint64) (*SegmentStore, error) {
 	mux := &sync.Mutex{}
 	cond := sync.NewCond(mux)
