@@ -32,7 +32,7 @@ func benchmarkPushPop(b *testing.B, payloadSize, batchSize int) {
 		b.Fatalf("failed to create segment directory: %v", err)
 	}
 
-	const segmentSize = 8 << 20 // 8 MiB segments keep rollover noise low
+	const segmentSize = 8 << 32 // 8 MiB segments keep rollover noise low
 	s, err := store.NewSegmentStore(dir, segmentSize)
 	if err != nil {
 		b.Fatalf("failed to create segment store: %v", err)
