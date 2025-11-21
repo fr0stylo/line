@@ -19,9 +19,8 @@ type SegmentStore struct {
 	writeSegment uint64
 	readSegment  uint64
 
-	readOffset     uint64
-	writeOffset    uint64
-	volatileOffset uint64
+	readOffset  uint64
+	writeOffset uint64
 
 	segmentSize uint64
 
