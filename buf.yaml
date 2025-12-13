@@ -2,7 +2,9 @@ version: v2
 
 modules:
   - name: buf.build/fr0stylo/line
-    path: proto
+    path: broker/proto
+
+
 
 lint:
   use:

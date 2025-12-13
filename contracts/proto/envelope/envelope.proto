@@ -2,12 +2,12 @@ syntax = "proto3";
 
 package envelope;
 
-option go_package = "github.com/fr0stylo/line/gen;envelope";
+option go_package = "github.com/fr0stylo/line/contracts/gen/envelope;envelope";
 
 message Envelope {
   string id = 1;
   int64 timestamp = 2;
-  bytes baggage = 3;
+  map<string, string> baggage = 3;
   map<string, string> attributes = 5;
   bytes payload = 4;
 }

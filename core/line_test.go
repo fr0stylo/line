@@ -1,4 +1,4 @@
-package line
+package core
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fr0stylo/line/store"
+	"github.com/fr0stylo/line/core/store"
 )
 
 func TestLinePushPop(t *testing.T) {
