@@ -37,10 +37,7 @@ func (s *server) Subscribe(
 ) error {
 	msgStream := s.queue.Stream(stream.Context())
 	for msg := range msgStream {
-		env := &envelope.Envelope{
-			Payload: msg,
-		}
-		if err := stream.Send(env); err != nil {
+		if err := stream.Send(msg); err != nil {
 			log.Printf("Failed to send message: %v", err)
 
 			return err

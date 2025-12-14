@@ -8,27 +8,7 @@ import (
 
 	"github.com/fr0stylo/line/contracts/gen/rpc"
 	"github.com/fr0stylo/line/core"
-	"github.com/fr0stylo/line/core/store"
 )
-
-type Option func(*options)
-
-type options struct {
-	store store.Store
-}
-
-func defaultOptions() *options {
-	return &options{
-		store: store.NewMemory(),
-	}
-}
-
-// WithStore sets a custom store implementation for the broker's queue.
-func WithStore(s store.Store) Option {
-	return func(o *options) {
-		o.store = s
-	}
-}
 
 type Broker struct {
 	queue  *core.Line
@@ -48,7 +28,7 @@ func NewBroker(opts ...Option) (*Broker, error) {
 
 	srv := &server{queue: q}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(cfg.opts...)
 	rpc.RegisterLineBrokerServer(grpcServer, srv)
 
 	reflection.Register(grpcServer)

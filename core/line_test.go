@@ -25,8 +25,11 @@ func TestLinePushPop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pop: %v", err)
 	}
-	if string(got) != string(want) {
-		t.Fatalf("expected %q, got %q", want, got)
+	if got == nil {
+		t.Fatalf("pop returned nil envelope")
+	}
+	if string(got.Payload) != string(want) {
+		t.Fatalf("expected %q, got %q", want, got.Payload)
 	}
 }
 
@@ -55,8 +58,11 @@ func TestLineStreamCancels(t *testing.T) {
 			if !ok {
 				t.Fatalf("stream closed early at index %d", i)
 			}
-			if string(got) != string(want) {
-				t.Fatalf("expected %q, got %q", want, got)
+			if got == nil {
+				t.Fatalf("stream returned nil envelope at index %d", i)
+			}
+			if string(got.Payload) != string(want) {
+				t.Fatalf("expected %q, got %q", want, got.Payload)
 			}
 		case <-time.After(time.Second):
 			t.Fatalf("timed out waiting for message %d", i)

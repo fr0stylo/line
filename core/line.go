@@ -6,15 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/fr0stylo/line/contracts/gen/envelope"
-
 	"github.com/fr0stylo/line/core/store"
 )
 
@@ -85,7 +83,7 @@ func (l *Line) PushContext(ctx context.Context, blob []byte) error {
 }
 
 // Pop blocks until the next message is available and returns it.
-func (l *Line) Pop() ([]byte, error) {
+func (l *Line) Pop() (*envelope.Envelope, error) {
 	initMetrics()
 
 	ctx := context.Background()
@@ -110,13 +108,13 @@ func (l *Line) Pop() ([]byte, error) {
 
 	recordPop(ctx, "success")
 
-	return payload.GetPayload(), nil
+	return &payload, nil
 }
 
 // Stream continuously emits messages until the context is cancelled or the
 // store read fails. The returned channel is closed on exit.
-func (l *Line) Stream(ctx context.Context) <-chan []byte {
-	ch := make(chan []byte)
+func (l *Line) Stream(ctx context.Context) <-chan *envelope.Envelope {
+	ch := make(chan *envelope.Envelope)
 	go func() {
 		defer close(ch)
 
@@ -160,12 +158,18 @@ func initMetrics() {
 
 		var err error
 
-		pushCounter, err = meter.Int64Counter("line.push.count", metric.WithDescription("Number of push attempts"))
+		pushCounter, err = meter.Int64Counter(
+			"line.push.count",
+			metric.WithDescription("Number of push attempts"),
+		)
 		if err != nil {
 			slog.Error("Failed to create push counter", "error", err)
 		}
 
-		popCounter, err = meter.Int64Counter("line.pop.count", metric.WithDescription("Number of pop attempts"))
+		popCounter, err = meter.Int64Counter(
+			"line.pop.count",
+			metric.WithDescription("Number of pop attempts"),
+		)
 		if err != nil {
 			slog.Error("Failed to create pop counter", "error", err)
 		}
