@@ -25,7 +25,7 @@ type Envelope struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	Baggage       []byte                 `protobuf:"bytes,3,opt,name=baggage,proto3" json:"baggage,omitempty"`
+	Baggage       map[string]string      `protobuf:"bytes,3,rep,name=baggage,proto3" json:"baggage,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Attributes    map[string]string      `protobuf:"bytes,5,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Payload       []byte                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -76,7 +76,7 @@ func (x *Envelope) GetTimestamp() int64 {
 	return 0
 }
 
-func (x *Envelope) GetBaggage() []byte {
+func (x *Envelope) GetBaggage() map[string]string {
 	if x != nil {
 		return x.Baggage
 	}
@@ -101,18 +101,21 @@ var File_envelope_envelope_proto protoreflect.FileDescriptor
 
 const file_envelope_envelope_proto_rawDesc = "" +
 	"\n" +
-	"\x17envelope/envelope.proto\x12\benvelope\"\xef\x01\n" +
+	"\x17envelope/envelope.proto\x12\benvelope\"\xcc\x02\n" +
 	"\bEnvelope\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1c\n" +
-	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x18\n" +
-	"\abaggage\x18\x03 \x01(\fR\abaggage\x12B\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x129\n" +
+	"\abaggage\x18\x03 \x03(\v2\x1f.envelope.Envelope.BaggageEntryR\abaggage\x12B\n" +
 	"\n" +
 	"attributes\x18\x05 \x03(\v2\".envelope.Envelope.AttributesEntryR\n" +
 	"attributes\x12\x18\n" +
-	"\apayload\x18\x04 \x01(\fR\apayload\x1a=\n" +
+	"\apayload\x18\x04 \x01(\fR\apayload\x1a:\n" +
+	"\fBaggageEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B'Z%github.com/fr0stylo/line/gen;envelopeb\x06proto3"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B:Z8github.com/fr0stylo/line/contracts/gen/envelope;envelopeb\x06proto3"
 
 var (
 	file_envelope_envelope_proto_rawDescOnce sync.Once
@@ -126,18 +129,20 @@ func file_envelope_envelope_proto_rawDescGZIP() []byte {
 	return file_envelope_envelope_proto_rawDescData
 }
 
-var file_envelope_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_envelope_envelope_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_envelope_envelope_proto_goTypes = []any{
 	(*Envelope)(nil), // 0: envelope.Envelope
-	nil,              // 1: envelope.Envelope.AttributesEntry
+	nil,              // 1: envelope.Envelope.BaggageEntry
+	nil,              // 2: envelope.Envelope.AttributesEntry
 }
 var file_envelope_envelope_proto_depIdxs = []int32{
-	1, // 0: envelope.Envelope.attributes:type_name -> envelope.Envelope.AttributesEntry
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: envelope.Envelope.baggage:type_name -> envelope.Envelope.BaggageEntry
+	2, // 1: envelope.Envelope.attributes:type_name -> envelope.Envelope.AttributesEntry
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_envelope_envelope_proto_init() }
@@ -151,7 +156,7 @@ func file_envelope_envelope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_envelope_envelope_proto_rawDesc), len(file_envelope_envelope_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

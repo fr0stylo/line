@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package rpc;
+
+option go_package = "github.com/fr0stylo/line/contracts/gen/rpc;rpc";
+
+import "envelope/envelope.proto";
+
+service LineBroker {
+  rpc Publish(PublishRequest) returns (PublishResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream envelope.Envelope);
+  rpc Acknowledge(AcknowledgeRequest) returns (AcknowledgeResponse);
+}
+
+message PublishRequest {
+  envelope.Envelope envelope = 1;
+}
+
+message PublishResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SubscribeRequest {
+  string subscriber_id = 1;
+}
+
+message AcknowledgeRequest {
+  string message_id = 1;
+  string subscriber_id = 2;
+}
+
+message AcknowledgeResponse {
+  bool success = 1;
+  string message = 2;
+}

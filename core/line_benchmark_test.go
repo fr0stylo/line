@@ -1,4 +1,4 @@
-package line_test
+package core_test
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fr0stylo/line"
-	"github.com/fr0stylo/line/store"
+	line "github.com/fr0stylo/line/core"
+	"github.com/fr0stylo/line/core/store"
 )
 
 func BenchmarkLinePushPopThroughput(b *testing.B) {
