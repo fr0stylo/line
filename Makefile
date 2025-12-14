@@ -1,21 +1,38 @@
-.PHONY: fmt vet lint test build example broker broker-run
+.PHONY: fmt vet lint test build example broker broker-run generate clean
 
 GOLANGCI_LINT ?= golangci-lint
 BROKER_BIN ?= bin/broker
+MODULES ?= core broker client contracts
+
 fmt:
-	go fmt ./...
+	@set -e; for module in $(MODULES); do \
+		echo "==> go fmt $$module"; \
+		(cd $$module && go fmt ./...); \
+	done
 
 vet:
-	go vet ./...
+	@set -e; for module in $(MODULES); do \
+		echo "==> go vet $$module"; \
+		(cd $$module && go vet ./...); \
+	done
 
 lint:
-	$(GOLANGCI_LINT) run ./...
+	@set -e; for module in $(MODULES); do \
+		echo "==> golangci-lint $$module"; \
+		(cd $$module && $(GOLANGCI_LINT) run ./...); \
+	done
 
 test:
-	go test ./...
+	@set -e; for module in $(MODULES); do \
+		echo "==> go test $$module"; \
+		(cd $$module && go test ./...); \
+	done
 
 build:
-	go build ./...
+	@set -e; for module in $(MODULES); do \
+		echo "==> go build $$module"; \
+		(cd $$module && go build ./...); \
+	done
 
 broker:
 	@mkdir -p bin
@@ -27,7 +44,6 @@ broker-run: broker
 	@echo "Starting broker on :50051..."
 	./$(BROKER_BIN)
 
-.PHONY: generate
 generate:
 	@for config in $$(find . -name "buf.gen.yaml"); do \
 		dir=$$(dirname $$config); \
@@ -35,7 +51,6 @@ generate:
 		(cd $$dir && buf generate); \
 	done
 
-.PHONY: clean
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf bin/

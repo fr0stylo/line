@@ -5,19 +5,18 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-
-	line "github.com/fr0stylo/line/core"
-	"github.com/fr0stylo/line/core/store"
-
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdktmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
+	line "github.com/fr0stylo/line/core"
+	"github.com/fr0stylo/line/core/store"
 )
 
 // initTracer configures a basic OpenTelemetry tracer provider with an OTLP/gRPC exporter
@@ -63,14 +62,20 @@ func initTracer(ctx context.Context) (func(context.Context) error, error) {
 		propagation.TraceContext{}, propagation.Baggage{},
 	))
 	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithInsecure())
-
-	mprov := sdktmetric.NewMeterProvider(sdktmetric.WithResource(res), sdktmetric.WithReader(sdktmetric.NewPeriodicReader(metricExporter)))
+	if err != nil {
+		return nil, err
+	}
+	mprov := sdktmetric.NewMeterProvider(
+		sdktmetric.WithResource(res),
+		sdktmetric.WithReader(
+			sdktmetric.NewPeriodicReader(metricExporter)))
 	otel.SetMeterProvider(mprov)
 
 	die := func(ctx context.Context) error {
 		if err := mprov.Shutdown(ctx); err != nil {
 			return err
 		}
+
 		return tp.Shutdown(ctx)
 	}
 
@@ -94,6 +99,7 @@ func main() {
 	s, err := store.NewSegmentStore("./dir/", 1024)
 	if err != nil {
 		slog.Error(err.Error())
+
 		return
 	}
 	defer s.Close() //nolint:errcheck // best effort cleanup
@@ -101,6 +107,7 @@ func main() {
 	q, err := line.NewLine(s)
 	if err != nil {
 		slog.Error(err.Error())
+
 		return
 	}
 	defer q.Close() //nolint:errcheck // best effort cleanup
