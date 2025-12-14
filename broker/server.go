@@ -16,10 +16,12 @@ type server struct {
 	queue *core.Line
 }
 
-func (s *server) Publish(ctx context.Context, req *rpc.PublishRequest) (*rpc.PublishResponse, error) {
+func (s *server) Publish(
+	ctx context.Context,
+	req *rpc.PublishRequest,
+) (*rpc.PublishResponse, error) {
 	env := req.GetEnvelope()
-	err := s.queue.PushContext(ctx, env.GetPayload())
-	if err != nil {
+	if err := s.queue.PushContext(ctx, env.GetPayload()); err != nil {
 		return nil, err
 	}
 
@@ -29,7 +31,10 @@ func (s *server) Publish(ctx context.Context, req *rpc.PublishRequest) (*rpc.Pub
 	}, nil
 }
 
-func (s *server) Subscribe(req *rpc.SubscribeRequest, stream grpc.ServerStreamingServer[envelope.Envelope]) error {
+func (s *server) Subscribe(
+	req *rpc.SubscribeRequest,
+	stream grpc.ServerStreamingServer[envelope.Envelope],
+) error {
 	msgStream := s.queue.Stream(stream.Context())
 	for msg := range msgStream {
 		env := &envelope.Envelope{
@@ -37,6 +42,7 @@ func (s *server) Subscribe(req *rpc.SubscribeRequest, stream grpc.ServerStreamin
 		}
 		if err := stream.Send(env); err != nil {
 			log.Printf("Failed to send message: %v", err)
+
 			return err
 		}
 	}
@@ -44,7 +50,11 @@ func (s *server) Subscribe(req *rpc.SubscribeRequest, stream grpc.ServerStreamin
 	return nil
 }
 
-func (s *server) Acknowledge(ctx context.Context, req *rpc.AcknowledgeRequest) (*rpc.AcknowledgeResponse, error) {
+func (s *server) Acknowledge(
+	ctx context.Context,
+	req *rpc.AcknowledgeRequest,
+) (*rpc.AcknowledgeResponse, error) {
 	log.Printf("Acknowledge called: id=%s", req.GetMessageId())
+
 	return &rpc.AcknowledgeResponse{}, nil
 }

@@ -61,6 +61,7 @@ func NewBroker(opts ...Option) (*Broker, error) {
 
 func (b *Broker) Shutdown() error {
 	b.server.GracefulStop()
+
 	return b.queue.Close()
 }
 
