@@ -2,10 +2,13 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
 
 	"github.com/fr0stylo/line/contracts/gen/envelope"
@@ -45,27 +48,43 @@ func (c *Client) Publish(ctx context.Context, payload []byte) error {
 	return err
 }
 
-func (c *Client) Handle(handler func(ctx context.Context, payload []byte) error) error {
+func (c *Client) Handle(
+	ctx context.Context,
+	handler func(ctx context.Context, payload []byte) error,
+) error {
 	errChan := make(chan error, 1)
 	stream, err := c.client.Subscribe(context.Background(), &rpc.SubscribeRequest{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to subscribe: %w", err)
 	}
+	defer stream.CloseSend() //nolint:errcheck
 
 	go func() {
-		defer stream.CloseSend() //nolint:errcheck
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			msg, err := stream.Recv()
 			if err != nil {
 				slog.Error("failed to receive message", "error", err.Error())
+
 				errChan <- err
+
 				return
 			}
 
-			ctx := context.Background()
-			if err := handler(ctx, msg.GetPayload()); err != nil {
+			octx := otel.GetTextMapPropagator().
+				Extract(ctx, propagation.MapCarrier(msg.GetBaggage()))
+
+			err = handler(octx, msg.GetPayload())
+			if err != nil {
 				slog.Error("failed to handle message", "error", err.Error())
+
 				errChan <- err
+
 				return
 			}
 		}

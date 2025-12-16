@@ -7,6 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/fr0stylo/line/broker"
 	"github.com/fr0stylo/line/client"
 )
@@ -31,7 +34,7 @@ func main() {
 	}
 	for i := 0; i < *c; i++ {
 		wg.Add(1)
-		go StartClientSubscriber(i + 1)
+		go StartClientSubscriber(ctx, i+1)
 	}
 
 	wg.Wait()
@@ -43,6 +46,7 @@ func StartServer() {
 	b, err := broker.NewBroker()
 	if err != nil {
 		slog.Error("Failed to create broker", "error", err)
+
 		return
 	}
 
@@ -56,9 +60,10 @@ func StartServer() {
 func StartClientPublisher(ctx context.Context, id any, i time.Duration) {
 	defer wg.Done()
 
-	c, err := client.NewClient(":8080")
+	c, err := client.NewClient(":8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to create client", "error", err)
+
 		return
 	}
 	defer c.Close() //nolint:errcheck
@@ -68,27 +73,30 @@ func StartClientPublisher(ctx context.Context, id any, i time.Duration) {
 	for range ticker.C {
 		if err := c.Publish(ctx, []byte("Hello, World!")); err != nil {
 			slog.Error("Failed to publish message", "error", err)
+
 			return
 		}
 	}
 }
 
-func StartClientSubscriber(id any) {
+func StartClientSubscriber(ctx context.Context, id any) {
 	defer wg.Done()
 
-	c, err := client.NewClient(":8080")
+	c, err := client.NewClient(":8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("Failed to create client", "error", err)
+
 		return
 	}
 	defer c.Close() //nolint:errcheck
 
-	if err := c.Handle(func(ctx context.Context, msg []byte) error {
+	if err := c.Handle(ctx, func(ctx context.Context, msg []byte) error {
 		slog.Info("Received message", "receiver", id, "message", string(msg))
 
 		return nil
 	}); err != nil {
 		slog.Error("Failed to handle message", "error", err)
+
 		return
 	}
 }
