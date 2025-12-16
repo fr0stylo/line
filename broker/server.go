@@ -11,12 +11,13 @@ import (
 	"github.com/fr0stylo/line/core"
 )
 
-type server struct {
+type queueServer struct {
 	rpc.UnimplementedLineBrokerServer
+
 	queue *core.Line
 }
 
-func (s *server) Publish(
+func (s *queueServer) Publish(
 	ctx context.Context,
 	req *rpc.PublishRequest,
 ) (*rpc.PublishResponse, error) {
@@ -31,8 +32,8 @@ func (s *server) Publish(
 	}, nil
 }
 
-func (s *server) Subscribe(
-	req *rpc.SubscribeRequest,
+func (s *queueServer) Subscribe(
+	_ *rpc.SubscribeRequest,
 	stream grpc.ServerStreamingServer[envelope.Envelope],
 ) error {
 	msgStream := s.queue.Stream(stream.Context())
@@ -47,8 +48,8 @@ func (s *server) Subscribe(
 	return nil
 }
 
-func (s *server) Acknowledge(
-	ctx context.Context,
+func (s *queueServer) Acknowledge(
+	_ context.Context,
 	req *rpc.AcknowledgeRequest,
 ) (*rpc.AcknowledgeResponse, error) {
 	log.Printf("Acknowledge called: id=%s", req.GetMessageId())

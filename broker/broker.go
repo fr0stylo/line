@@ -26,7 +26,7 @@ func NewBroker(opts ...Option) (*Broker, error) {
 		return nil, err
 	}
 
-	srv := &server{queue: q}
+	srv := &queueServer{queue: q}
 
 	grpcServer := grpc.NewServer(cfg.opts...)
 	rpc.RegisterLineBrokerServer(grpcServer, srv)

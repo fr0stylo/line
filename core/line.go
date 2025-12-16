@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -29,14 +30,23 @@ var (
 // Queue describes a durable FIFO that supports discrete push/pop semantics and
 // a streaming consumer API.
 type Queue interface {
-	Push([]byte) error
+	Push(payload []byte) error
+	PushContext(ctx context.Context, payload []byte) error
 	Pop() ([]byte, error)
-	Stream(context.Context) (<-chan []byte, error)
+	PopContext(ctx context.Context) ([]byte, error)
+	Stream(ctx context.Context) (<-chan []byte, error)
 }
 
 // Line exposes a Queue implementation backed by a store.Store.
 type Line struct {
 	fs store.Store
+}
+
+// NewLine wires a Line on top of the provided store implementation.
+func NewLine(store store.Store) (*Line, error) {
+	return &Line{
+		fs: store,
+	}, nil
 }
 
 // Close flushes metadata and releases resources held by the underlying store.
@@ -49,6 +59,8 @@ func (l *Line) Push(blob []byte) error {
 	return l.PushContext(context.Background(), blob)
 }
 
+// PushContext enqueues a new message into the durable store, propagating tracing
+// information from the provided context.
 func (l *Line) PushContext(ctx context.Context, blob []byte) error {
 	initMetrics()
 
@@ -69,11 +81,13 @@ func (l *Line) PushContext(ctx context.Context, blob []byte) error {
 	buf, err := proto.Marshal(&payload)
 	if err != nil {
 		recordPush(ctx, "marshal_error")
+
 		return err
 	}
 
 	if _, err := l.fs.Write(buf); err != nil {
 		recordPush(ctx, "store_error")
+
 		return err
 	}
 
@@ -91,16 +105,20 @@ func (l *Line) Pop() (*envelope.Envelope, error) {
 	buf, err := l.fs.Read()
 	if err != nil {
 		recordPop(ctx, "store_error")
+
 		return nil, err
 	}
 
 	var payload envelope.Envelope
-	if err := proto.Unmarshal(buf, &payload); err != nil {
+
+	err = proto.Unmarshal(buf, &payload)
+	if err != nil {
 		recordPop(ctx, "decode_error")
-		return nil, err
+
+		return nil, fmt.Errorf("failed to decode payload: %w", err)
 	}
 
-	carrier := propagation.MapCarrier(payload.Baggage)
+	carrier := propagation.MapCarrier(payload.GetBaggage())
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
 	_, span := otel.Tracer(telemetryTracerName).Start(ctx, "Pop")
@@ -114,9 +132,10 @@ func (l *Line) Pop() (*envelope.Envelope, error) {
 // Stream continuously emits messages until the context is cancelled or the
 // store read fails. The returned channel is closed on exit.
 func (l *Line) Stream(ctx context.Context) <-chan *envelope.Envelope {
-	ch := make(chan *envelope.Envelope)
+	envelopes := make(chan *envelope.Envelope)
+
 	go func() {
-		defer close(ch)
+		defer close(envelopes)
 
 		for {
 			select {
@@ -129,11 +148,12 @@ func (l *Line) Stream(ctx context.Context) <-chan *envelope.Envelope {
 			blob, err := l.Pop()
 			if err != nil {
 				slog.Error("Failed to read message", "error", err)
+
 				continue
 			}
 
 			select {
-			case ch <- blob:
+			case envelopes <- blob:
 
 			case <-ctx.Done():
 				return
@@ -142,14 +162,7 @@ func (l *Line) Stream(ctx context.Context) <-chan *envelope.Envelope {
 		}
 	}()
 
-	return ch
-}
-
-// NewLine wires a Line on top of the provided store implementation.
-func NewLine(store store.Store) (*Line, error) {
-	return &Line{
-		fs: store,
-	}, nil
+	return envelopes
 }
 
 func initMetrics() {
