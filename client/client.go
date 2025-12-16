@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/fr0stylo/line/contracts/gen/envelope"
-	"github.com/fr0stylo/line/contracts/gen/rpc"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/fr0stylo/line/contracts/gen/envelope"
+	"github.com/fr0stylo/line/contracts/gen/rpc"
 )
 
 type Client struct {
@@ -17,13 +17,14 @@ type Client struct {
 	conn   *grpc.ClientConn
 }
 
-func NewClient(addr string) (*Client, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func NewClient(addr string, opts ...grpc.DialOption) (*Client, error) {
+	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		return nil, err
 	}
 
 	client := rpc.NewLineBrokerClient(conn)
+
 	return &Client{
 		conn:   conn,
 		client: client,

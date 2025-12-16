@@ -85,7 +85,9 @@ func read(r io.Reader) (p []byte, n int, err error) {
 	crc := blob[len(blob)-4:]
 	blob = blob[:len(blob)-4]
 
-	if sum := crc32.Checksum(blob, crc32.MakeTable(crc32.Castagnoli)); sum != binary.BigEndian.Uint32(crc) {
+	if sum := crc32.Checksum(blob, crc32.MakeTable(crc32.Castagnoli)); sum != binary.BigEndian.Uint32(
+		crc,
+	) {
 		return nil, blobN + offsetN, ErrorCRCCheckMismatch
 	}
 
