@@ -13,6 +13,8 @@ import (
 
 var wg sync.WaitGroup
 
+// main parses command-line flags for producers, consumers, and publish intervals, starts the broker server,
+// launches the configured publisher and subscriber goroutines, and waits for all of them to finish.
 func main() {
 	p := flag.Int("p", 1, "Number of producers")
 	c := flag.Int("c", 1, "Number of consumers")
@@ -37,6 +39,9 @@ func main() {
 	wg.Wait()
 }
 
+// StartServer creates a broker, starts listening on ":8080", and blocks until the server stops.
+// It decrements the package-level WaitGroup when it returns. On broker creation or listen failure
+// it logs a descriptive error message.
 func StartServer() {
 	defer wg.Done()
 
@@ -53,6 +58,11 @@ func StartServer() {
 	}
 }
 
+// StartClientPublisher connects to the broker and publishes "Hello, World!" at the specified interval.
+// 
+// It uses ctx for publish operations and creates a client connected to :8080. The publisher runs until
+// client creation or a publish operation fails, logging errors before returning. The id parameter is an
+// arbitrary identifier for the caller and is not interpreted by this function. i is the interval between publishes.
 func StartClientPublisher(ctx context.Context, id any, i time.Duration) {
 	defer wg.Done()
 
@@ -73,6 +83,8 @@ func StartClientPublisher(ctx context.Context, id any, i time.Duration) {
 	}
 }
 
+// StartClientSubscriber creates a client connected to ":8080" and registers a handler that logs each received message with the provided subscriber id.
+// The id parameter is included in log entries to identify which subscriber received a message.
 func StartClientSubscriber(id any) {
 	defer wg.Done()
 

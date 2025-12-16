@@ -68,6 +68,12 @@ func write(w io.Writer, p []byte) (n int, err error) {
 
 var ErrorCRCCheckMismatch = errors.New("CRC check mismatch")
 
+// read reads a length-prefixed blob containing data followed by a 4-byte CRC-32 and verifies the checksum.
+// The input layout is an 8-byte big-endian length (payload length plus 4), then the payload bytes, then a 4-byte big-endian CRC.
+// On success it returns the payload (CRC removed) and the total number of bytes read (header + payload + CRC).
+// If the CRC validation fails it returns ErrorCRCCheckMismatch and the number of bytes read up to the failure.
+// Other read errors are returned along with the number of bytes successfully read prior to the error.
+// The CRC uses the CRC-32 Castagnoli polynomial.
 func read(r io.Reader) (p []byte, n int, err error) {
 	var buf [8]byte
 	offsetN, err := r.Read(buf[:])

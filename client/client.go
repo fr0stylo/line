@@ -17,6 +17,9 @@ type Client struct {
 	conn   *grpc.ClientConn
 }
 
+// NewClient creates a Client connected to the LineBroker service at addr using the provided gRPC dial options.
+// It dials the address with the given options and returns a Client that wraps the underlying gRPC connection and generated LineBroker RPC client.
+// If the connection cannot be established, an error is returned.
 func NewClient(addr string, opts ...grpc.DialOption) (*Client, error) {
 	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
