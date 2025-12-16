@@ -15,6 +15,11 @@ type Broker struct {
 	server *grpc.Server
 }
 
+// NewBroker creates a Broker that wires an in‑memory core.Line to a gRPC server.
+// It applies the provided Option functions to a default configuration, initializes
+// the in-memory queue, registers the LineBroker RPC service on a new gRPC server,
+// and enables server reflection. Returns the constructed Broker or an error if
+// the queue initialization fails.
 func NewBroker(opts ...Option) (*Broker, error) {
 	cfg := defaultOptions()
 	for _, opt := range opts {

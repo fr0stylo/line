@@ -15,6 +15,8 @@ import (
 
 const Megabyte = 1024 * 1024
 
+// main parses command-line flags, configures logging and storage (persistent or in-memory),
+// starts the broker gRPC server, and performs a graceful shutdown when an OS signal is received or the server reports an error.
 func main() {
 	var (
 		addr        string
@@ -95,6 +97,10 @@ func main() {
 	slog.Info("Broker stopped")
 }
 
+// init sets a custom flag.Usage function that writes the program usage, a short description, available options, and example invocations to standard error.
+//
+// The printed usage includes the executable name, a one-line description ("Line Broker - A durable message queue server"),
+// the flag defaults (via flag.PrintDefaults), and several example command lines demonstrating common startup options.
 func init() {
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])

@@ -185,7 +185,8 @@ func (s *SegmentStore) Close() error {
 }
 
 // NewSegmentStore constructs a segment-backed store rooted at dir with the
-// provided segment size.
+// NewSegmentStore creates and initializes a disk-backed, fixed-size segmented log store rooted at dir with the provided segmentSize.
+// It ensures required directories exist, loads persisted metadata if present, opens and seeks the current write and read segment files, and returns the initialized *SegmentStore or an error if setup fails.
 func NewSegmentStore(dir string, segmentSize uint64) (*SegmentStore, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err

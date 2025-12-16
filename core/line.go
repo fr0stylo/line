@@ -152,6 +152,9 @@ func NewLine(store store.Store) (*Line, error) {
 	}, nil
 }
 
+// initMetrics initializes telemetry counters for push and pop operations once.
+// It is safe to call repeatedly; the counters are created exactly one time and any
+// creation errors are logged.
 func initMetrics() {
 	metricsOnce.Do(func() {
 		meter := otel.Meter(telemetryTracerName)
