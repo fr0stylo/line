@@ -21,6 +21,7 @@ func main() {
 		dataDir     string
 		segmentSize int64
 		useMemory   bool
+		verbose     bool
 	)
 
 	flag.StringVar(&addr, "addr", ":50051", "gRPC server address")
@@ -32,10 +33,16 @@ func main() {
 		"segment file size in bytes (default 64MB)",
 	)
 	flag.BoolVar(&useMemory, "memory", false, "use in-memory storage (non-persistent)")
+	flag.BoolVar(&verbose, "verbose", false, "enable verbose logging")
 	flag.Parse()
 
+	logLevel := slog.LevelInfo
+	if verbose {
+		logLevel = slog.LevelDebug
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
 

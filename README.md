@@ -70,9 +70,11 @@ directive while iterating locally.
 ## Core Usage
 ```go
 import (
-"context"
-line "github.com/fr0stylo/line/core"
-"github.com/fr0stylo/line/core/store"
+	"context"
+
+	"github.com/fr0stylo/line/contracts/gen/envelope"
+	line "github.com/fr0stylo/line/core"
+	"github.com/fr0stylo/line/core/store"
 )
 
 s, err := store.NewSegmentStore("./dir/", 1024)
@@ -84,9 +86,9 @@ if err != nil { log.Fatal(err) }
 defer queue.Close()
 
 ctx := context.Background()
-if err := queue.PushContext(ctx, []byte("hello")); err != nil { log.Fatal(err) }
+if err := queue.PushContext(ctx, &envelope.Envelope{Payload: []byte("hello")}); err != nil { log.Fatal(err) }
 env, err := queue.Pop()
-fmt.Println(string(env.Payload))
+fmt.Println(string(env.GetPayload()))
 ```
 
 For streaming:
@@ -95,7 +97,7 @@ ctx, cancel := context.WithCancel(context.Background())
 defer cancel()
 
 for env := range queue.Stream(ctx) {
-slog.Info("received", "payload", string(env.Payload))
+	slog.Info("received", "payload", string(env.GetPayload()))
 }
 ```
 

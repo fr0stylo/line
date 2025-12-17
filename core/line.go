@@ -30,11 +30,11 @@ var (
 // Queue describes a durable FIFO that supports discrete push/pop semantics and
 // a streaming consumer API.
 type Queue interface {
-	Push(payload []byte) error
-	PushContext(ctx context.Context, payload []byte) error
-	Pop() ([]byte, error)
-	PopContext(ctx context.Context) ([]byte, error)
-	Stream(ctx context.Context) (<-chan []byte, error)
+	Push(payload *envelope.Envelope) error
+	PushContext(ctx context.Context, payload *envelope.Envelope) error
+	Pop() (*envelope.Envelope, error)
+	PopContext(ctx context.Context) (*envelope.Envelope, error)
+	Stream(ctx context.Context) (<-chan *envelope.Envelope, error)
 }
 
 // Line exposes a Queue implementation backed by a store.Store.
@@ -55,30 +55,28 @@ func (l *Line) Close() error {
 }
 
 // Push enqueues a new message into the durable store.
-func (l *Line) Push(blob []byte) error {
+func (l *Line) Push(blob *envelope.Envelope) error {
 	return l.PushContext(context.Background(), blob)
 }
 
 // PushContext enqueues a new message into the durable store, propagating tracing
 // information from the provided context.
-func (l *Line) PushContext(ctx context.Context, blob []byte) error {
+func (l *Line) PushContext(ctx context.Context, blob *envelope.Envelope) error {
 	initMetrics()
 
 	ctx, span := otel.Tracer(telemetryTracerName).Start(ctx, "Push")
 	defer span.End()
 
-	carrier := propagation.MapCarrier{}
-	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	if blob.Baggage == nil {
+		carrier := propagation.MapCarrier{}
+		otel.GetTextMapPropagator().Inject(ctx, carrier)
 
-	payload := envelope.Envelope{
-		Id:         "",
-		Timestamp:  time.Now().UnixMilli(),
-		Baggage:    carrier,
-		Attributes: nil,
-		Payload:    blob,
+		blob.Baggage = carrier
 	}
 
-	buf, err := proto.Marshal(&payload)
+	blob.Timestamp = time.Now().UnixMilli()
+
+	buf, err := proto.Marshal(blob)
 	if err != nil {
 		recordPush(ctx, "marshal_error")
 

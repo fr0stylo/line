@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+const telemetryTracerName = "line/client"
+
 type Client struct {
 	client rpc.LineBrokerClient
 	conn   *grpc.ClientConn
@@ -27,11 +29,12 @@ func NewClient(addr string, opts ...grpc.DialOption) (*Client, error) {
 	}
 
 	client := rpc.NewLineBrokerClient(conn)
+	id, _ := uuid.NewV7()
 
 	return &Client{
 		conn:   conn,
 		client: client,
-		id:     uuid.New().String(),
+		id:     id.String(),
 	}, nil
 }
 
@@ -40,10 +43,18 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) Publish(ctx context.Context, payload []byte) error {
+	ctx, span := otel.Tracer(telemetryTracerName).Start(ctx, "Publish")
+	defer span.End()
+
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+
+	id, _ := uuid.NewV7()
 	_, err := c.client.Publish(ctx, &rpc.PublishRequest{Envelope: &envelope.Envelope{
 		Payload:   payload,
-		Id:        uuid.New().String(),
+		Id:        id.String(),
 		Timestamp: time.Now().UnixMilli(),
+		Baggage:   carrier,
 	}})
 
 	return err

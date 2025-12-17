@@ -1,11 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/fr0stylo/line/contracts/gen/envelope"
 	"github.com/fr0stylo/line/core/store"
 )
 
@@ -17,7 +19,7 @@ func TestLinePushPop(t *testing.T) {
 	}
 
 	want := []byte("hello")
-	if err := q.Push(want); err != nil {
+	if err := q.Push(newEnvelope(want)); err != nil {
 		t.Fatalf("push: %v", err)
 	}
 
@@ -28,8 +30,8 @@ func TestLinePushPop(t *testing.T) {
 	if got == nil {
 		t.Fatalf("pop returned nil envelope")
 	}
-	if string(got.Payload) != string(want) {
-		t.Fatalf("expected %q, got %q", want, got.Payload)
+	if !bytes.Equal(got.GetPayload(), want) {
+		t.Fatalf("expected %q, got %q", want, got.GetPayload())
 	}
 }
 
@@ -42,7 +44,7 @@ func TestLineStreamCancels(t *testing.T) {
 
 	messages := [][]byte{[]byte("one"), []byte("two")}
 	for _, msg := range messages {
-		if err := q.Push(msg); err != nil {
+		if err := q.Push(newEnvelope(msg)); err != nil {
 			t.Fatalf("push %q: %v", msg, err)
 		}
 	}
@@ -61,8 +63,8 @@ func TestLineStreamCancels(t *testing.T) {
 			if got == nil {
 				t.Fatalf("stream returned nil envelope at index %d", i)
 			}
-			if string(got.Payload) != string(want) {
-				t.Fatalf("expected %q, got %q", want, got.Payload)
+			if !bytes.Equal(got.GetPayload(), want) {
+				t.Fatalf("expected %q, got %q", want, got.GetPayload())
 			}
 		case <-time.After(time.Second):
 			t.Fatalf("timed out waiting for message %d", i)
@@ -128,5 +130,11 @@ func TestMemoryStoreCloseUnblocksRead(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatalf("read did not unblock after close")
+	}
+}
+
+func newEnvelope(payload []byte) *envelope.Envelope {
+	return &envelope.Envelope{
+		Payload: append([]byte(nil), payload...),
 	}
 }

@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
 
 	"github.com/fr0stylo/line/contracts/gen/envelope"
@@ -23,7 +26,10 @@ func (s *queueServer) Publish(
 	req *rpc.PublishRequest,
 ) (*rpc.PublishResponse, error) {
 	env := req.GetEnvelope()
-	if err := s.queue.PushContext(ctx, env.GetPayload()); err != nil {
+	octx := otel.GetTextMapPropagator().
+		Extract(ctx, propagation.MapCarrier(env.GetBaggage()))
+
+	if err := s.queue.PushContext(octx, env); err != nil {
 		return nil, err
 	}
 
@@ -44,9 +50,31 @@ func (s *queueServer) Subscribe(
 		default:
 		}
 
-		_, err := stream.Recv()
+		req, err := stream.Recv()
 		if err != nil {
 			return fmt.Errorf("failed to receive subscribe request: %w", err)
+		}
+
+		switch req.GetType() {
+		case rpc.SubscribeType_INIT:
+			slog.Debug("New subscriber initialized", "subscriber_id", req.GetSubscriberId())
+		case rpc.SubscribeType_ACK:
+			slog.Debug(
+				"Subscriber acknowledged message",
+				"subscriber_id",
+				req.GetSubscriberId(),
+				"message_id",
+				req.GetMessageId(),
+			)
+		case rpc.SubscribeType_NACK:
+			slog.Debug(
+				"Subscriber rejected message",
+				"subscriber_id",
+				req.GetSubscriberId(),
+				"message_id",
+				req.GetMessageId(),
+			)
+		default:
 		}
 
 		msg, err := s.queue.Pop()
