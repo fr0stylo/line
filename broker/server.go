@@ -2,8 +2,12 @@ package broker
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"log/slog"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
 
 	"github.com/fr0stylo/line/contracts/gen/envelope"
@@ -11,15 +15,21 @@ import (
 	"github.com/fr0stylo/line/core"
 )
 
-type server struct {
+type queueServer struct {
 	rpc.UnimplementedLineBrokerServer
+
 	queue *core.Line
 }
 
-func (s *server) Publish(ctx context.Context, req *rpc.PublishRequest) (*rpc.PublishResponse, error) {
+func (s *queueServer) Publish(
+	ctx context.Context,
+	req *rpc.PublishRequest,
+) (*rpc.PublishResponse, error) {
 	env := req.GetEnvelope()
-	err := s.queue.PushContext(ctx, env.GetPayload())
-	if err != nil {
+	octx := otel.GetTextMapPropagator().
+		Extract(ctx, propagation.MapCarrier(env.GetBaggage()))
+
+	if err := s.queue.PushContext(octx, env); err != nil {
 		return nil, err
 	}
 
@@ -29,22 +39,61 @@ func (s *server) Publish(ctx context.Context, req *rpc.PublishRequest) (*rpc.Pub
 	}, nil
 }
 
-func (s *server) Subscribe(req *rpc.SubscribeRequest, stream grpc.ServerStreamingServer[envelope.Envelope]) error {
-	msgStream := s.queue.Stream(stream.Context())
-	for msg := range msgStream {
-		env := &envelope.Envelope{
-			Payload: msg,
+func (s *queueServer) Subscribe(
+	stream grpc.BidiStreamingServer[rpc.SubscribeRequest, envelope.Envelope],
+) error {
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
-		if err := stream.Send(env); err != nil {
-			log.Printf("Failed to send message: %v", err)
-			return err
+
+		req, err := stream.Recv()
+		if err != nil {
+			return fmt.Errorf("failed to receive subscribe request: %w", err)
+		}
+
+		switch req.GetType() {
+		case rpc.SubscribeType_INIT:
+			slog.Debug("New subscriber initialized", "subscriber_id", req.GetSubscriberId())
+		case rpc.SubscribeType_ACK:
+			slog.Debug(
+				"Subscriber acknowledged message",
+				"subscriber_id",
+				req.GetSubscriberId(),
+				"message_id",
+				req.GetMessageId(),
+			)
+		case rpc.SubscribeType_NACK:
+			slog.Debug(
+				"Subscriber rejected message",
+				"subscriber_id",
+				req.GetSubscriberId(),
+				"message_id",
+				req.GetMessageId(),
+			)
+		default:
+		}
+
+		msg, err := s.queue.Pop()
+		if err != nil {
+			return fmt.Errorf("failed to pop message: %w", err)
+		}
+
+		err = stream.SendMsg(msg)
+		if err != nil {
+			return fmt.Errorf("failed to send message: %w", err)
 		}
 	}
-
-	return nil
 }
 
-func (s *server) Acknowledge(ctx context.Context, req *rpc.AcknowledgeRequest) (*rpc.AcknowledgeResponse, error) {
+func (s *queueServer) Acknowledge(
+	_ context.Context,
+	req *rpc.AcknowledgeRequest,
+) (*rpc.AcknowledgeResponse, error) {
 	log.Printf("Acknowledge called: id=%s", req.GetMessageId())
+
 	return &rpc.AcknowledgeResponse{}, nil
 }

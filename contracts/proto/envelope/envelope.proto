@@ -8,6 +8,6 @@ message Envelope {
   string id = 1;
   int64 timestamp = 2;
   map<string, string> baggage = 3;
-  map<string, string> attributes = 5;
   bytes payload = 4;
+  map<string, string> attributes = 5;
 }

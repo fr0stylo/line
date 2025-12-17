@@ -7,63 +7,88 @@ Durable Go queue built on append-only stores. `line` provides a minimal push/pop
 2. [Architecture](#architecture)
 3. [Project Layout](#project-layout)
 4. [Getting Started](#getting-started)
-5. [Usage](#usage)
-6. [Development Workflow](#development-workflow)
-7. [Testing & Quality](#testing--quality)
-8. [Persistence & Configuration](#persistence--configuration)
-9. [Troubleshooting](#troubleshooting)
-10. [Contributing](#contributing)
+5. [Core Usage](#core-usage)
+6. [Broker Usage](#broker-usage)
+7. [Development Workflow](#development-workflow)
+8. [Testing & Quality](#testing--quality)
+9. [Performance Testing](#performance-testing)
+10. [Persistence & Configuration](#persistence--configuration)
+11. [Troubleshooting](#troubleshooting)
+12. [Contributing](#contributing)
 
 ## Features
-- **Pluggable storage**: File-based store and segmented store implement the shared `store.Store` interface.
+
+- **Pluggable storage**: In-memory store for quick runs plus file/segment stores that satisfy the shared `store.Store`
+  interface.
 - **Durable metadata**: `_meta.json` snapshots track read/write offsets so queues survive restarts.
 - **Back-pressure aware streaming**: `Stream(ctx)` yields messages on a channel until cancelled.
-- **Concurrency safety**: Writers and readers share mutex/condition primitives for predictable blocking semantics.
-- **Example-driven**: `examples/example.go` simulates multiple producers and one streaming consumer.
+- **Telemetry-first**: Push/Pop metrics and traces emit via OpenTelemetry (OTLP/gRPC by default in examples) and
+  propagate baggage across envelope headers.
+- **gRPC broker**: Optional broker process exposes Publish/Subscribe over protobuf contracts with a matching Go client.
+- **Example-driven**: `examples/01-core` stresses the queue; `examples/02-broker` wires the broker and clients together.
 - **Name with a wink**: “Line” doubles as “queue” in several languages, so the project name is a tongue-in-cheek nod to its FIFO focus.
 
 ## Architecture
 The architecture revolves around three layers:
 
-| Layer | Responsibility | Key Files |
-| --- | --- | --- |
-| Queue façade | Public API (`Push`, `Pop`, `Stream`) and lifecycle (`Close`) | `line.go` |
-| Store interface | Contract that every durable store must fulfill (`store.Store`) | `store/store.go` |
-| Store implementations | Disk-backed persistence with metadata, offsets, and segment rollover | `store/file.go`, `store/segment.go`, `store/utils.go` |
+| Layer                 | Responsibility                                                                  | Key Files                                                                                    |
+|-----------------------|---------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| Queue façade          | Public API (`Push`, `PushContext`, `Pop`, `Stream`) and lifecycle (`Close`)     | `core/line.go`                                                                               |
+| Store interface       | Contract that every durable store must fulfill (`store.Store`)                  | `core/store/store.go`                                                                        |
+| Store implementations | In-memory store plus disk-backed persistence with metadata and segment rollover | `core/store/memory.go`, `core/store/file.go`, `core/store/segment.go`, `core/store/utils.go` |
+| gRPC broker           | Server wiring a `core.Line` behind protobuf contracts                           | `broker/*.go`, `broker/cmd/broker`                                                           |
+| Contracts & client    | Protobuf definitions and generated Go client                                    | `contracts/`, `client/`                                                                      |
 
-`Line` relies on a provided `store.Store` to push bytes by length-prefixing messages. Reads block using `sync.Cond` until data is available. Segment stores roll files over when they reach `segmentSize`, deleting fully-read segments to keep disk usage bounded.
+`Line` relies on a provided `store.Store` to marshal envelopes (payload + tracing baggage) and length-prefix them before
+persistence. Reads block using `sync.Cond` until data is available. Segment stores roll files over when they reach
+`segmentSize`, deleting fully-read segments to keep disk usage bounded. Telemetry is emitted through the OpenTelemetry
+SDK when configured.
 
 ## Project Layout
-- `line.go` — queue logic on top of a `store.Store`.
-- `store/` — persistence layer (file store, segmented store, helpers).
-- `examples/` — runnable demonstration.
-- `dir/` — default data directory; safe to delete when starting fresh.
+
+- `core/` — queue logic on top of a `store.Store` implementation.
+- `core/store/` — persistence layer (memory, file, segmented store, helpers).
+- `broker/` — gRPC broker server exposing Publish/Subscribe.
+- `client/` — Go client for the broker API.
+- `contracts/` — protobuf definitions and generated code.
+- `examples/01-core` — instrumented queue demo writing to `./dir/`.
+- `examples/02-broker` — in-process broker + client demo.
 
 ## Getting Started
 1. Ensure Go 1.25+ is installed (`go env GOVERSION`).
 2. Clone the repository and change into it.
-3. Run the example to confirm your environment:
-   ```bash
-   go run ./examples
-   ```
-   Two goroutines will enqueue timestamped messages while a consumer streams them for ~10 seconds. Logs and metadata accumulate under `dir/`.
+3. The workspace `go.work` wires modules together; run examples from the repo root so paths resolve.
+4. Core demo: `go run ./examples/01-core` (writes under `./dir/`).
+5. Broker demo: `go run ./examples/02-broker -p 2 -c 3` (starts a broker on `:8080` and spawns clients).
 
 ### Installing in Another Module
-Since `go.mod` declares `module line`, import using a module path that reflects your fork (e.g., `github.com/you/line`). Run `go get github.com/you/line` or use a replace directive while iterating locally.
 
-## Usage
+Import the queue package as `github.com/fr0stylo/line/core` and the store package from
+`github.com/fr0stylo/line/core/store`. If you fork the repo, update module paths accordingly or use a `replace`
+directive while iterating locally.
+
+## Core Usage
 ```go
-store, err := store.NewSegmentStore("./dir/", 1024)
-if err != nil { log.Fatal(err) }
-defer store.Close()
+import (
+	"context"
 
-queue, err := line.NewLine(store)
+	"github.com/fr0stylo/line/contracts/gen/envelope"
+	line "github.com/fr0stylo/line/core"
+	"github.com/fr0stylo/line/core/store"
+)
+
+s, err := store.NewSegmentStore("./dir/", 1024)
+if err != nil { log.Fatal(err) }
+defer s.Close()
+
+queue, err := line.NewLine(s)
 if err != nil { log.Fatal(err) }
 defer queue.Close()
 
-if err := queue.Push([]byte("hello")); err != nil { log.Fatal(err) }
-msg, err := queue.Pop()
-fmt.Println(string(msg))
+ctx := context.Background()
+if err := queue.PushContext(ctx, &envelope.Envelope{Payload: []byte("hello")}); err != nil { log.Fatal(err) }
+env, err := queue.Pop()
+fmt.Println(string(env.GetPayload()))
 ```
 
 For streaming:
@@ -71,67 +96,105 @@ For streaming:
 ctx, cancel := context.WithCancel(context.Background())
 defer cancel()
 
-for blob := range queue.Stream(ctx) {
-    slog.Info("received", "payload", string(blob))
+for env := range queue.Stream(ctx) {
+	slog.Info("received", "payload", string(env.GetPayload()))
 }
 ```
+
+OpenTelemetry traces and metrics are emitted when a provider is configured (see `examples/01-core` for a ready-to-run
+setup).
+
+## Broker Usage
+
+- Start the broker (persistent store by default):
+  ```bash
+  go run ./broker/cmd/broker -addr :50051 -data-dir ./data -segment-size $((64*1024*1024))
+  ```
+  Add `-memory` to use the in-memory store instead.
+- Publish and consume with the Go client:
+  ```go
+  cli, err := client.NewClient("localhost:50051")
+  if err != nil { log.Fatal(err) }
+  defer cli.Close()
+
+  if err := cli.Publish(context.Background(), []byte("hello via broker")); err != nil { log.Fatal(err) }
+
+  _ = cli.Handle(func(ctx context.Context, payload []byte) error {
+      fmt.Println(string(payload))
+      return nil
+  })
+  ```
+- A full demo combining broker + clients lives in `examples/02-broker` (`go run ./examples/02-broker -h` for flags).
 
 ## Development Workflow
 `Makefile` shortcuts:
 ```bash
-make fmt      # go fmt ./...
-make vet      # go vet ./...
-make lint     # golangci-lint run ./...
-make test     # go test ./...
-make build    # go build ./...
-make example  # go run ./examples
+make fmt        # go fmt ./... across core, broker, client, contracts
+make vet        # go vet ./... across modules
+make lint       # golangci-lint run ./...
+make test       # go test ./... across modules
+make build      # go build ./... across modules
+make broker     # build broker binary to ./bin/broker
+make broker-run # build then start broker on :50051
+make generate   # regenerate protobufs via buf
 ```
 Run `make fmt vet lint test build` before pushing to ensure formatting, vetting, and linters all pass.
 
 ## Testing & Quality
-- Tests live alongside the code they cover (e.g., `store/file_test.go`).
+
+- Tests live alongside the code they cover (e.g., `core/store/file_test.go`).
 - Favor table-driven tests and `TestType_Method` naming.
 - Use `go test ./... -cover` to confirm meaningful coverage of push/pop paths, error handling, and segment rollover.
 - `golangci-lint` is the canonical static-analysis entry point; configure it via `GOLANGCI_LINT` env var if installed in a custom path.
 
 ## Performance Testing
-- Run the push/pop throughput benchmark via `go test -bench=LinePushPopThroughput -run '^$' -benchmem -benchtime=5s .`.
-- Each sub-benchmark exercises a payload size (`128B`, `512B`, `2KiB`, `8KiB`) across batch factors (`batch1`, `batch8`, `batch64`), so you get a grid of `msgs/s` metrics that reflect both message size and per-iteration depth.
-- Narrow to a specific scenario with `go test -bench='LinePushPopThroughput/2048B_batch64' -run '^$' -benchmem -benchtime=10s .`.
-- Benchmark data are written to a temporary directory, so every invocation is isolated and leaves no artifacts under `./dir`. Adjust `-benchtime` for longer sampling windows and inspect `-benchmem` output to compare allocation pressure across runs. Throughput is I/O bound, so SSDs vs HDDs (or tmpfs) can materially change results.
+
+- Run the push/pop throughput benchmark via
+  `go test -bench=LinePushPopThroughput -run '^$' -benchmem -benchtime=5s ./core`.
+- Each sub-benchmark exercises a payload size (`128B`, `512B`, `2KiB`, `8KiB`) across batch factors (`batch1`, `batch8`,
+  `batch64`).
+- Narrow to a specific scenario with
+  `go test -bench='LinePushPopThroughput/2048B_batch64' -run '^$' -benchmem -benchtime=10s ./core`.
+- Benchmark data are written to a temporary directory, so every invocation is isolated and leaves no artifacts under
+  `./dir/`.
 
 Sample output from an AMD Ryzen 7 5700U laptop (ext4 NVMe SSD, `-benchtime=5s`, buffered writes enabled):
 
 ```
 goos: linux
 goarch: amd64
-pkg: github.com/fr0stylo/line
+pkg: github.com/fr0stylo/line/core
 cpu: AMD Ryzen 7 5700U with Radeon Graphics
-BenchmarkLinePushPopThroughput/128B_batch1-16         	   45787	    134881 ns/op	   0.95 MB/s	      7414 msgs/s	    3334 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/128B_batch8-16         	    5380	   1101614 ns/op	   0.93 MB/s	      7262 msgs/s	   26930 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/128B_batch64-16        	     699	   8705236 ns/op	   0.94 MB/s	      7352 msgs/s	  229122 B/op	    3393 allocs/op
-BenchmarkLinePushPopThroughput/512B_batch1-16         	   42748	    139368 ns/op	   3.67 MB/s	      7175 msgs/s	    3849 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/512B_batch8-16         	    5384	   1089271 ns/op	   3.76 MB/s	      7344 msgs/s	   30797 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/512B_batch64-16        	     692	   8891392 ns/op	   3.69 MB/s	      7198 msgs/s	  253780 B/op	    3394 allocs/op
-BenchmarkLinePushPopThroughput/2048B_batch1-16        	   42324	    140981 ns/op	  14.53 MB/s	      7093 msgs/s	    5505 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/2048B_batch8-16        	    4916	   1120916 ns/op	  14.62 MB/s	      7137 msgs/s	   44045 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/2048B_batch64-16       	     681	   8910302 ns/op	  14.71 MB/s	      7183 msgs/s	  352946 B/op	    3395 allocs/op
-BenchmarkLinePushPopThroughput/8192B_batch1-16        	   38728	    153491 ns/op	  53.37 MB/s	      6515 msgs/s	   11665 B/op	      53 allocs/op
-BenchmarkLinePushPopThroughput/8192B_batch8-16        	    4762	   1220220 ns/op	  53.71 MB/s	      6556 msgs/s	   93317 B/op	     424 allocs/op
-BenchmarkLinePushPopThroughput/8192B_batch64-16       	     621	   9654863 ns/op	  54.30 MB/s	      6629 msgs/s	  747170 B/op	    3398 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch1-16          	   45787	    134881 ns/op	   0.95 MB/s	      7414 msgs/s	    3334 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch8-16          	    5380	   1101614 ns/op	   0.93 MB/s	      7262 msgs/s	   26930 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/128B_batch64-16         	     699	   8705236 ns/op	   0.94 MB/s	      7352 msgs/s	  229122 B/op	    3393 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch1-16          	   42748	    139368 ns/op	   3.67 MB/s	      7175 msgs/s	    3849 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch8-16          	    5384	   1089271 ns/op	   3.76 MB/s	      7344 msgs/s	   30797 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/512B_batch64-16         	     692	   8891392 ns/op	   3.69 MB/s	      7198 msgs/s	  253780 B/op	    3394 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch1-16         	   42324	    140981 ns/op	  14.53 MB/s	      7093 msgs/s	    5505 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch8-16         	    4916	   1120916 ns/op	  14.62 MB/s	      7137 msgs/s	   44045 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/2048B_batch64-16        	     681	   8910302 ns/op	  14.71 MB/s	      7183 msgs/s	  352946 B/op	    3395 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch1-16         	   38728	    153491 ns/op	  53.37 MB/s	      6515 msgs/s	   11665 B/op	      53 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch8-16         	    4762	   1220220 ns/op	  53.71 MB/s	      6556 msgs/s	   93317 B/op	     424 allocs/op
+BenchmarkLinePushPopThroughput/8192B_batch64-16        	     621	   9654863 ns/op	  54.30 MB/s	      6629 msgs/s	  747170 B/op	    3398 allocs/op
 ```
 
 ## Persistence & Configuration
 - File store (`store.NewFile`) writes to a single append-only log; ideal for small deployments.
 - Segment store (`store.NewSegmentStore(dir, segmentSize)`) caps each log file at `segmentSize` bytes and rolls forward, deleting old segments after successful reads.
 - Metadata (`*_meta.json`) is written via atomic temp-file swaps. Deleting metadata resets offsets, so keep files together with their logs.
-- When tweaking `segmentSize`, stop the process and remove old `dir/*.log` files to avoid offset mismatches.
+- When tweaking `segmentSize`, stop the process and remove old `dir/*.log` files to avoid offset mismatches. The broker
+  uses `./data/` by default; the core example uses `./dir/`.
 
 ## Troubleshooting
 - **Queue blocks forever**: Ensure at least one producer is calling `Push`; otherwise `Stream` waits on the condition variable.
 - **Metadata corruption**: Remove `dir/*.log` and `_meta.json` while the process is stopped, then restart to rebuild clean state.
-- **golangci-lint missing**: Install via `brew install golangci-lint` or `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`.
-- **Different module path**: Update `module` in `go.mod` to match your fork, then run `go mod tidy`.
+- **OTLP collector unavailable**: The core example logs exporter errors but continues running. Point
+  `OTEL_EXPORTER_OTLP_ENDPOINT` at a reachable collector or run without telemetry.
+- **Broker port in use**: Adjust `-addr` when starting the broker or shut down the conflicting service.
+- **golangci-lint missing**: Install via `brew install golangci-lint` or
+  `go install github.com/golangci-lint/cmd/golangci-lint@latest`.
+- **Different module path**: Update `module` in each module’s `go.mod` to match your fork, then run `go mod tidy`.
 
 ## Contributing
 - Run formatting, vetting, linting, tests, and builds (`make fmt vet lint test build`) before pushing.

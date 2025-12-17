@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/fr0stylo/line/contracts/gen/envelope"
 	line "github.com/fr0stylo/line/core"
 	"github.com/fr0stylo/line/core/store"
 )
@@ -71,7 +72,7 @@ func benchmarkPushPop(b *testing.B, payloadSize, batchSize int) {
 
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < batchSize; j++ {
-			if err := q.Push(payload); err != nil {
+			if err := q.Push(&envelope.Envelope{Payload: payload}); err != nil {
 				b.Fatalf("push failed: %v", err)
 			}
 		}

@@ -19,7 +19,7 @@ vet:
 lint:
 	@set -e; for module in $(MODULES); do \
 		echo "==> golangci-lint $$module"; \
-		(cd $$module && $(GOLANGCI_LINT) run ./...); \
+		(cd $$module && $(GOLANGCI_LINT) run --fix ./...); \
 	done
 
 test:

@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
+	"github.com/fr0stylo/line/contracts/gen/envelope"
 	line "github.com/fr0stylo/line/core"
 	"github.com/fr0stylo/line/core/store"
 )
@@ -116,7 +117,9 @@ func main() {
 	go func() {
 		for range time.NewTicker(100 * time.Millisecond).C {
 			ctx, span := otel.Tracer("example").Start(context.Background(), "fast")
-			if err := q.PushContext(ctx, []byte("message from "+time.Now().Format(time.RFC3339))); err != nil {
+			if err := q.PushContext(ctx, &envelope.Envelope{
+				Payload: []byte("message from " + time.Now().Format(time.RFC3339)),
+			}); err != nil {
 				slog.Error("Failed to enqueue message", "error", err)
 			}
 			span.End()
@@ -125,7 +128,9 @@ func main() {
 	go func() {
 		for range time.NewTicker(4 * time.Second).C {
 			ctx, span := otel.Tracer("example").Start(context.Background(), "slow")
-			if err := q.PushContext(ctx, []byte("message 2 from "+time.Now().Format(time.RFC3339))); err != nil {
+			if err := q.PushContext(ctx, &envelope.Envelope{
+				Payload: []byte("message 2 from " + time.Now().Format(time.RFC3339)),
+			}); err != nil {
 				slog.Error("Failed to enqueue message", "error", err)
 			}
 			span.End()
@@ -135,6 +140,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 	for msg := range q.Stream(ctx) {
-		slog.Info(string(msg))
+		slog.Info("received message", "payload", string(msg.GetPayload()))
 	}
 }

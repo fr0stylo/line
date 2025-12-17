@@ -66,7 +66,11 @@ func (s *SegmentStore) nextWritableSegment() error {
 		return err
 	}
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/%08d.log", s.dir, s.writeSegment), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(
+		fmt.Sprintf("%s/%08d.log", s.dir, s.writeSegment),
+		os.O_RDWR|os.O_CREATE|os.O_APPEND,
+		0o644,
+	)
 	if err != nil {
 		return err
 	}
@@ -210,7 +214,11 @@ func NewSegmentStore(dir string, segmentSize uint64) (*SegmentStore, error) {
 		}
 	}
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/%08d.log", dir, s.writeSegment), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(
+		fmt.Sprintf("%s/%08d.log", dir, s.writeSegment),
+		os.O_RDWR|os.O_CREATE|os.O_APPEND,
+		0o644,
+	)
 	if err != nil {
 		return nil, err
 	}

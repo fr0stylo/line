@@ -30,7 +30,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LineBrokerClient interface {
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error)
-	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[envelope.Envelope], error)
+	Subscribe(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SubscribeRequest, envelope.Envelope], error)
 	Acknowledge(ctx context.Context, in *AcknowledgeRequest, opts ...grpc.CallOption) (*AcknowledgeResponse, error)
 }
 
@@ -52,24 +52,18 @@ func (c *lineBrokerClient) Publish(ctx context.Context, in *PublishRequest, opts
 	return out, nil
 }
 
-func (c *lineBrokerClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[envelope.Envelope], error) {
+func (c *lineBrokerClient) Subscribe(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SubscribeRequest, envelope.Envelope], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &LineBroker_ServiceDesc.Streams[0], LineBroker_Subscribe_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	x := &grpc.GenericClientStream[SubscribeRequest, envelope.Envelope]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type LineBroker_SubscribeClient = grpc.ServerStreamingClient[envelope.Envelope]
+type LineBroker_SubscribeClient = grpc.BidiStreamingClient[SubscribeRequest, envelope.Envelope]
 
 func (c *lineBrokerClient) Acknowledge(ctx context.Context, in *AcknowledgeRequest, opts ...grpc.CallOption) (*AcknowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -86,7 +80,7 @@ func (c *lineBrokerClient) Acknowledge(ctx context.Context, in *AcknowledgeReque
 // for forward compatibility.
 type LineBrokerServer interface {
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
-	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[envelope.Envelope]) error
+	Subscribe(grpc.BidiStreamingServer[SubscribeRequest, envelope.Envelope]) error
 	Acknowledge(context.Context, *AcknowledgeRequest) (*AcknowledgeResponse, error)
 	mustEmbedUnimplementedLineBrokerServer()
 }
@@ -101,7 +95,7 @@ type UnimplementedLineBrokerServer struct{}
 func (UnimplementedLineBrokerServer) Publish(context.Context, *PublishRequest) (*PublishResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Publish not implemented")
 }
-func (UnimplementedLineBrokerServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[envelope.Envelope]) error {
+func (UnimplementedLineBrokerServer) Subscribe(grpc.BidiStreamingServer[SubscribeRequest, envelope.Envelope]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
 }
 func (UnimplementedLineBrokerServer) Acknowledge(context.Context, *AcknowledgeRequest) (*AcknowledgeResponse, error) {
@@ -147,15 +141,11 @@ func _LineBroker_Publish_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _LineBroker_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(SubscribeRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(LineBrokerServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, envelope.Envelope]{ServerStream: stream})
+	return srv.(LineBrokerServer).Subscribe(&grpc.GenericServerStream[SubscribeRequest, envelope.Envelope]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type LineBroker_SubscribeServer = grpc.ServerStreamingServer[envelope.Envelope]
+type LineBroker_SubscribeServer = grpc.BidiStreamingServer[SubscribeRequest, envelope.Envelope]
 
 func _LineBroker_Acknowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AcknowledgeRequest)
@@ -196,6 +186,7 @@ var LineBroker_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Subscribe",
 			Handler:       _LineBroker_Subscribe_Handler,
 			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "rpc/rpc.proto",
