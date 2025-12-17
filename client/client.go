@@ -6,12 +6,13 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/fr0stylo/line/contracts/gen/envelope"
-	"github.com/fr0stylo/line/contracts/gen/rpc"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
+
+	"github.com/fr0stylo/line/contracts/gen/envelope"
+	"github.com/fr0stylo/line/contracts/gen/rpc"
 )
 
 const telemetryTracerName = "line/client"
@@ -65,11 +66,10 @@ func (c *Client) Handle(
 	handler func(ctx context.Context, payload []byte) error,
 ) error {
 	errChan := make(chan error, 1)
-	stream, err := c.client.Subscribe(context.Background())
+	stream, err := c.client.Subscribe(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
-	defer stream.CloseSend() //nolint:errcheck
 
 	err = stream.Send(&rpc.SubscribeRequest{
 		Type:         rpc.SubscribeType_INIT,
@@ -80,9 +80,14 @@ func (c *Client) Handle(
 	}
 
 	go func() {
+		defer stream.CloseSend() //nolint:errcheck
+
 		for {
 			select {
 			case <-ctx.Done():
+
+				errChan <- ctx.Err()
+
 				return
 			default:
 			}
