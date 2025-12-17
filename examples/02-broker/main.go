@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log/slog"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -91,7 +92,9 @@ func StartClientSubscriber(ctx context.Context, id any) {
 	defer c.Close() //nolint:errcheck
 
 	if err := c.Handle(ctx, func(ctx context.Context, msg []byte) error {
-		slog.Info("Received message", "receiver", id, "message", string(msg))
+		dur := time.Duration(1000*rand.Float64()) * time.Millisecond
+		slog.Info("Received message", "receiver", id, "message", string(msg), "sleep", dur.String())
+		time.Sleep(dur)
 
 		return nil
 	}); err != nil {

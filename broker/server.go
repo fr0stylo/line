@@ -2,6 +2,7 @@ package broker
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"google.golang.org/grpc"
@@ -33,19 +34,31 @@ func (s *queueServer) Publish(
 }
 
 func (s *queueServer) Subscribe(
-	_ *rpc.SubscribeRequest,
-	stream grpc.ServerStreamingServer[envelope.Envelope],
+	stream grpc.BidiStreamingServer[rpc.SubscribeRequest, envelope.Envelope],
 ) error {
-	msgStream := s.queue.Stream(stream.Context())
-	for msg := range msgStream {
-		if err := stream.Send(msg); err != nil {
-			log.Printf("Failed to send message: %v", err)
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 
-			return err
+		_, err := stream.Recv()
+		if err != nil {
+			return fmt.Errorf("failed to receive subscribe request: %w", err)
+		}
+
+		msg, err := s.queue.Pop()
+		if err != nil {
+			return fmt.Errorf("failed to pop message: %w", err)
+		}
+
+		err = stream.SendMsg(msg)
+		if err != nil {
+			return fmt.Errorf("failed to send message: %w", err)
 		}
 	}
-
-	return nil
 }
 
 func (s *queueServer) Acknowledge(
