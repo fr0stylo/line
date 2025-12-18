@@ -9,7 +9,6 @@ import "envelope/envelope.proto";
 service LineBroker {
   rpc Publish(PublishRequest) returns (PublishResponse);
   rpc Subscribe(stream SubscribeRequest) returns (stream envelope.Envelope);
-  rpc Acknowledge(AcknowledgeRequest) returns (AcknowledgeResponse);
 }
 
 message PublishRequest {
