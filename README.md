@@ -25,6 +25,8 @@ Durable Go queue built on append-only stores. `line` provides a minimal push/pop
 - **Telemetry-first**: Push/Pop metrics and traces emit via OpenTelemetry (OTLP/gRPC by default in examples) and
   propagate baggage across envelope headers.
 - **gRPC broker**: Optional broker process exposes Publish/Subscribe over protobuf contracts with a matching Go client.
+- **Ack-aware broker**: Subscribers ACK or NACK deliveries on the same stream; NACKed messages are requeued before
+  pulling new data from storage.
 - **Example-driven**: `examples/01-core` stresses the queue; `examples/02-broker` wires the broker and clients together.
 - **Name with a wink**: “Line” doubles as “queue” in several languages, so the project name is a tongue-in-cheek nod to its FIFO focus.
 
@@ -123,6 +125,15 @@ setup).
       fmt.Println(string(payload))
       return nil
   })
+  ```
+- Acknowledgement flow: the subscribe stream carries ACK/NACK responses from the handler. NACKed envelopes are held in
+  an
+  in-memory requeue buffer and delivered before reading fresh data from the store. Tune the buffer size with
+  `WithAckOptions`:
+  ```go
+  b, err := broker.NewBroker(
+      broker.WithAckOptions(broker.WithMaxRequeueLength(2048)),
+  )
   ```
 - A full demo combining broker + clients lives in `examples/02-broker` (`go run ./examples/02-broker -h` for flags).
 

@@ -365,12 +365,11 @@ const file_rpc_rpc_proto_rawDesc = "" +
 	"\rSubscribeType\x12\b\n" +
 	"\x04INIT\x10\x00\x12\a\n" +
 	"\x03ACK\x10\x01\x12\b\n" +
-	"\x04NACK\x10\x022\xc0\x01\n" +
+	"\x04NACK\x10\x022~\n" +
 	"\n" +
 	"LineBroker\x124\n" +
 	"\aPublish\x12\x13.rpc.PublishRequest\x1a\x14.rpc.PublishResponse\x12:\n" +
-	"\tSubscribe\x12\x15.rpc.SubscribeRequest\x1a\x12.envelope.Envelope(\x010\x01\x12@\n" +
-	"\vAcknowledge\x12\x17.rpc.AcknowledgeRequest\x1a\x18.rpc.AcknowledgeResponseB0Z.github.com/fr0stylo/line/contracts/gen/rpc;rpcb\x06proto3"
+	"\tSubscribe\x12\x15.rpc.SubscribeRequest\x1a\x12.envelope.Envelope(\x010\x01B0Z.github.com/fr0stylo/line/contracts/gen/rpc;rpcb\x06proto3"
 
 var (
 	file_rpc_rpc_proto_rawDescOnce sync.Once
@@ -400,12 +399,10 @@ var file_rpc_rpc_proto_depIdxs = []int32{
 	0, // 1: rpc.SubscribeRequest.type:type_name -> rpc.SubscribeType
 	1, // 2: rpc.LineBroker.Publish:input_type -> rpc.PublishRequest
 	3, // 3: rpc.LineBroker.Subscribe:input_type -> rpc.SubscribeRequest
-	4, // 4: rpc.LineBroker.Acknowledge:input_type -> rpc.AcknowledgeRequest
-	2, // 5: rpc.LineBroker.Publish:output_type -> rpc.PublishResponse
-	6, // 6: rpc.LineBroker.Subscribe:output_type -> envelope.Envelope
-	5, // 7: rpc.LineBroker.Acknowledge:output_type -> rpc.AcknowledgeResponse
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
+	2, // 4: rpc.LineBroker.Publish:output_type -> rpc.PublishResponse
+	6, // 5: rpc.LineBroker.Subscribe:output_type -> envelope.Envelope
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name

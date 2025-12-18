@@ -20,9 +20,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LineBroker_Publish_FullMethodName     = "/rpc.LineBroker/Publish"
-	LineBroker_Subscribe_FullMethodName   = "/rpc.LineBroker/Subscribe"
-	LineBroker_Acknowledge_FullMethodName = "/rpc.LineBroker/Acknowledge"
+	LineBroker_Publish_FullMethodName   = "/rpc.LineBroker/Publish"
+	LineBroker_Subscribe_FullMethodName = "/rpc.LineBroker/Subscribe"
 )
 
 // LineBrokerClient is the client API for LineBroker service.
@@ -31,7 +30,6 @@ const (
 type LineBrokerClient interface {
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error)
 	Subscribe(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SubscribeRequest, envelope.Envelope], error)
-	Acknowledge(ctx context.Context, in *AcknowledgeRequest, opts ...grpc.CallOption) (*AcknowledgeResponse, error)
 }
 
 type lineBrokerClient struct {
@@ -65,23 +63,12 @@ func (c *lineBrokerClient) Subscribe(ctx context.Context, opts ...grpc.CallOptio
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type LineBroker_SubscribeClient = grpc.BidiStreamingClient[SubscribeRequest, envelope.Envelope]
 
-func (c *lineBrokerClient) Acknowledge(ctx context.Context, in *AcknowledgeRequest, opts ...grpc.CallOption) (*AcknowledgeResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AcknowledgeResponse)
-	err := c.cc.Invoke(ctx, LineBroker_Acknowledge_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // LineBrokerServer is the server API for LineBroker service.
 // All implementations must embed UnimplementedLineBrokerServer
 // for forward compatibility.
 type LineBrokerServer interface {
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
 	Subscribe(grpc.BidiStreamingServer[SubscribeRequest, envelope.Envelope]) error
-	Acknowledge(context.Context, *AcknowledgeRequest) (*AcknowledgeResponse, error)
 	mustEmbedUnimplementedLineBrokerServer()
 }
 
@@ -97,9 +84,6 @@ func (UnimplementedLineBrokerServer) Publish(context.Context, *PublishRequest) (
 }
 func (UnimplementedLineBrokerServer) Subscribe(grpc.BidiStreamingServer[SubscribeRequest, envelope.Envelope]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
-}
-func (UnimplementedLineBrokerServer) Acknowledge(context.Context, *AcknowledgeRequest) (*AcknowledgeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Acknowledge not implemented")
 }
 func (UnimplementedLineBrokerServer) mustEmbedUnimplementedLineBrokerServer() {}
 func (UnimplementedLineBrokerServer) testEmbeddedByValue()                    {}
@@ -147,24 +131,6 @@ func _LineBroker_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) er
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type LineBroker_SubscribeServer = grpc.BidiStreamingServer[SubscribeRequest, envelope.Envelope]
 
-func _LineBroker_Acknowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AcknowledgeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LineBrokerServer).Acknowledge(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LineBroker_Acknowledge_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LineBrokerServer).Acknowledge(ctx, req.(*AcknowledgeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // LineBroker_ServiceDesc is the grpc.ServiceDesc for LineBroker service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -175,10 +141,6 @@ var LineBroker_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Publish",
 			Handler:    _LineBroker_Publish_Handler,
-		},
-		{
-			MethodName: "Acknowledge",
-			Handler:    _LineBroker_Acknowledge_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
