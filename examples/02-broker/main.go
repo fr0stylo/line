@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
@@ -95,6 +96,9 @@ func StartClientSubscriber(ctx context.Context, id any) {
 		dur := time.Duration(1000*rand.Float64()) * time.Millisecond
 		slog.Info("Received message", "receiver", id, "message", string(msg), "sleep", dur.String())
 		time.Sleep(dur)
+		if rand.Int()%10 > 5 {
+			return fmt.Errorf("failed to handle message")
+		}
 
 		return nil
 	}); err != nil {

@@ -3,7 +3,6 @@ package broker
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 
 	"go.opentelemetry.io/otel"
@@ -18,6 +17,7 @@ import (
 type queueServer struct {
 	rpc.UnimplementedLineBrokerServer
 
+	ack   *AckManager
 	queue *core.Line
 }
 
@@ -57,43 +57,44 @@ func (s *queueServer) Subscribe(
 
 		switch req.GetType() {
 		case rpc.SubscribeType_INIT:
-			slog.Debug("New subscriber initialized", "subscriber_id", req.GetSubscriberId())
+			slog.Info("New subscriber initialized", "subscriber_id", req.GetSubscriberId())
 		case rpc.SubscribeType_ACK:
-			slog.Debug(
+			slog.Info(
 				"Subscriber acknowledged message",
 				"subscriber_id",
 				req.GetSubscriberId(),
 				"message_id",
 				req.GetMessageId(),
 			)
+			s.ack.Ack(req.GetMessageId())
 		case rpc.SubscribeType_NACK:
-			slog.Debug(
+			slog.Info(
 				"Subscriber rejected message",
 				"subscriber_id",
 				req.GetSubscriberId(),
 				"message_id",
 				req.GetMessageId(),
 			)
+			s.ack.Nack(req.GetMessageId())
 		default:
 		}
 
-		msg, err := s.queue.Pop()
-		if err != nil {
-			return fmt.Errorf("failed to pop message: %w", err)
+		msg := s.ack.Pop()
+		if msg == nil {
+			slog.Info("No messages to send")
+			msg, err = s.queue.Pop()
+			slog.Info("Popped message", "message_id", msg.(*envelope.Envelope).GetId())
+			if err != nil {
+				return fmt.Errorf("failed to pop message: %w", err)
+			}
 		}
 
+		slog.Info("Sending message", "message_id", msg.(*envelope.Envelope).GetId())
 		err = stream.SendMsg(msg)
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
+		slog.Info("Message sent")
+		s.ack.Initiate(msg.(*envelope.Envelope).GetId(), msg)
 	}
-}
-
-func (s *queueServer) Acknowledge(
-	_ context.Context,
-	req *rpc.AcknowledgeRequest,
-) (*rpc.AcknowledgeResponse, error) {
-	log.Printf("Acknowledge called: id=%s", req.GetMessageId())
-
-	return &rpc.AcknowledgeResponse{}, nil
 }
