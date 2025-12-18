@@ -10,11 +10,15 @@ import (
 	"github.com/fr0stylo/line/core"
 )
 
+// Broker represents the message broker instance, combining the core queue
+// logic with the gRPC server interface.
 type Broker struct {
 	queue  *core.Line
 	server *grpc.Server
 }
 
+// NewBroker initializes a new Broker with the provided options.
+// It sets up the underlying storage and prepares the gRPC server.
 func NewBroker(opts ...Option) (*Broker, error) {
 	cfg := defaultOptions()
 	for _, opt := range opts {
@@ -26,7 +30,7 @@ func NewBroker(opts ...Option) (*Broker, error) {
 		return nil, err
 	}
 
-	srv := &queueServer{queue: q}
+	srv := &queueServer{queue: q, ack: NewAckManager(cfg.ackOptions...)}
 
 	grpcServer := grpc.NewServer(cfg.opts...)
 	rpc.RegisterLineBrokerServer(grpcServer, srv)
@@ -39,12 +43,15 @@ func NewBroker(opts ...Option) (*Broker, error) {
 	}, nil
 }
 
+// Shutdown gracefully stops the gRPC server and closes the underlying queue storage.
 func (b *Broker) Shutdown() error {
 	b.server.GracefulStop()
 
 	return b.queue.Close()
 }
 
+// ListenAndServe starts the gRPC server on the specified TCP address.
+// This is a blocking call.
 func (b *Broker) ListenAndServe(addr string) error {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {

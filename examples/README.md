@@ -28,7 +28,8 @@ shared assets (like `./dir/`) land in the expected place and the workspace `go.w
   - `-i`: base publish interval
   - `-ir`: randomization factor applied to the interval
 - Behavior: starts the broker on `:8080`, spins up the requested producers/consumers, and streams "Hello, World!"
-  messages until you exit (Ctrl+C).
+  messages until you exit (Ctrl+C). Consumers randomly fail to process messages to demonstrate the ACK/NACK flow and
+  trigger broker-side requeues.
 
 ## Notes
 
